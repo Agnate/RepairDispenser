@@ -22,10 +22,7 @@ public class RepairDispenser extends JavaPlugin {
 	
 	@Override
 	public void onDisable() {
-		// Save config.
-        config.saveData();
-        
-        // Show disabled message.
+		// Show disabled message.
         System.out.println("[" + this + "] RepairDispenser is disabled.");
 	}
 
@@ -40,10 +37,10 @@ public class RepairDispenser extends JavaPlugin {
         
 	    // Create event listeners.
         PluginManager pm = getServer().getPluginManager();
-        BlockListener blockListener = new RDBlockListener ();
+        BlockListener blockListener = new RDBlockListener (this);
         
         // Register events.
-        pm.registerEvent(Event.Type.BLOCK_DISPENSE, blockListener, Priority.Highest, this);
+        pm.registerEvent(Event.Type.BLOCK_DISPENSE, blockListener, Priority.Lowest, this);
         
         // Show enabled message.
         System.out.println("[" + this + "] RepairDispenser is enabled.");
