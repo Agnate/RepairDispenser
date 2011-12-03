@@ -125,9 +125,13 @@ public class RDBlockListener extends BlockListener {
         // Update inventory.
         dispenser.getInventory().setContents( newInv.toArray( inv ) );
         
-        // Eject nothing from the Dispenser, since we're overriding it.
-        //event.setItem( repairItem );
-        event.setCancelled(true);
-        dispenser.getWorld().dropItem(dispenser.getBlock().getLocation(), repairItem);
+        // If the item has enchantments, drop it (Bukkit bug) instead of dispensing it.
+        if ( repairItem.getEnchantments().size() <= 0 ) {
+            event.setItem( repairItem );
+        }
+        else {
+            event.setCancelled(true);
+            dispenser.getWorld().dropItem(dispenser.getBlock().getLocation(), repairItem);
+        }
     }
 }
