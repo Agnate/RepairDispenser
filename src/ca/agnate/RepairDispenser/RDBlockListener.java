@@ -1,9 +1,13 @@
 package ca.agnate.RepairDispenser;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.Dispenser;
-import org.bukkit.enchantments.Enchantment;
 import org.bukkit.event.block.BlockDispenseEvent;
 import org.bukkit.event.block.BlockListener;
 import org.bukkit.inventory.ItemStack;
@@ -17,7 +21,7 @@ public class RDBlockListener extends BlockListener {
     }
     
     public void onBlockDispense (BlockDispenseEvent event) {
-        RepairDispenser.sendMsg(null, "Dispensing " + event.getItem().toString() + "...");
+        //plugin.getServer().getPlayer("agnate").getInventory().addItem( new ItemStack (Material.DIAMOND_CHESTPLATE, 1, (short) (Material.DIAMOND_CHESTPLATE.getMaxDurability() - 1) ) );
         
         Block block = event.getBlock();
         
@@ -26,36 +30,104 @@ public class RDBlockListener extends BlockListener {
         if ( block.getType().equals( Material.DISPENSER ) == false ) { return; }
         
         Dispenser dispenser = (Dispenser) block.getState();
-        ItemStack drop = event.getItem();
-        ItemStack[] items = dispenser.getInventory().getContents();
+        ItemStack[] inv = dispenser.getInventory().getContents();
+        List<ItemStack> repairList = new LinkedList<ItemStack> ();
+        List<ItemStack> rawList = new LinkedList<ItemStack> ();
         
-        for (ItemStack item : items) {
-            if ( item == null ) { continue; }
-            if ( item.getAmount() != drop.getAmount() ) { continue; }
-            if ( item.getTypeId() != drop.getTypeId() ) { continue; }
-            if ( item.getDurability() != drop.getDurability() ) { continue; }
+        // Check for any repairable items.
+        for (ItemStack invItem : inv) {
+            if ( Repairable.isRepairable( invItem ) ) {
+                repairList.add( invItem );
+            }
+            else if ( Repairable.isRawMaterial( invItem ) ) {
+                rawList.add( invItem );
+            }
+        }
+        
+        // If there's nothing to repair, no need to intercept Dispenser.
+        if ( repairList.size() <= 0 ) { return; }
+        
+        // If there are no raw materials for the repair items, no need to do anything.
+        if ( rawList.size() <= 0 ) { return; }
+        
+        boolean canRepair = false;
+        LinkedList<ItemStack> usefulRawList = new LinkedList<ItemStack> ();
+        ItemStack repairItem = null;
+        Repairable repairInfo = null;
+        
+        // Might have to loop through more than 1 repairable before we find a suitable repair.
+        do {
+            // If there is more than 1 repairable, grab the first one we find.
+            repairItem = repairList.remove(0);
             
-            // Add enchantments to the dropped item.
-            if ( item.getEnchantments().size() > 0 ) {
-                RepairDispenser.sendMsg(null, "    ADDING ENCHANTS!");
-                drop.addEnchantments( item.getEnchantments() );
+            // If it's not damaged, don't pick this item.
+            if ( repairItem.getDurability() <= 0 ) { continue; }
+            
+            // Grab the repair info.
+            repairInfo = Repairable.getRepairable( repairItem );
+            
+            // If there is no repair info, continue with the next repairItem.
+            if ( repairInfo == null ) { continue; }
+            
+            // Check if there are any raw materials for this item.
+            for (ItemStack raw : rawList) {
+                if ( raw == null ) { continue; }
                 
-                for ( Enchantment enchant : item.getEnchantments().keySet() ) {
-                    if ( enchant == null ) { continue; }
-                    RepairDispenser.sendMsg(null, "    ENCHANT = " + enchant.toString());
+                // If it's the proper material, remember it.
+                if ( raw.getType().equals( repairInfo.getRaw() ) ) {
+                    usefulRawList.add( raw );
                 }
             }
             
-            RepairDispenser.sendMsg(null, "    INV = " + item.toString());
-            
-            event.setItem( drop );
-            
-            for ( Enchantment enchant : event.getItem().getEnchantments().keySet() ) {
-                if ( enchant == null ) { continue; }
-                RepairDispenser.sendMsg(null, "    DROPENCHANT = " + enchant.toString());
+            // We have raw materials, a repair item, and repair info, so we can do a repair!
+            if ( usefulRawList.size() > 0 ) {
+                canRepair = true;
+                break;
             }
             
-            return;
+        } while ( repairList.size() > 0 );
+        
+        // If we can't repair anything, we're done.
+        if ( canRepair == false ) { return; }
+        
+        // Calculate the durability repaired per raw material.
+        short durPerRaw = (short) Math.ceil((float) repairItem.getType().getMaxDurability() / (float) repairInfo.getTotalRaw());
+        
+        // Use the minimum amount of raw materials for the repair.
+        int numRawNeeded = (int) Math.ceil( (float) repairItem.getDurability() / (float) durPerRaw );
+        
+        // Remove the raw materials needed for the repair from the Dispenser inventory.
+        List<ItemStack> newInv = new ArrayList<ItemStack> (Arrays.asList(inv));
+        
+        int numRaw = 0;
+        
+        while ( numRawNeeded > 0  &&  usefulRawList.size() > 0 ) {
+            ItemStack temp = usefulRawList.removeFirst();
+            
+            if ( temp.getAmount() > numRawNeeded ) {
+                temp.setAmount( temp.getAmount() - numRawNeeded );
+                numRaw += numRawNeeded;
+                numRawNeeded = 0;
+            }
+            else if ( temp.getAmount() <= numRawNeeded ) {
+                numRaw += temp.getAmount();
+                numRawNeeded -= temp.getAmount();
+                newInv.set( newInv.indexOf(temp), null );
+            }
         }
+        
+        // Repair the item.
+        repairItem.setDurability( (short) (repairItem.getDurability() - (numRaw * durPerRaw)) );
+        
+        // Remove item from inventory.
+        newInv.set( newInv.indexOf(repairItem), null );
+        
+        // Update inventory.
+        dispenser.getInventory().setContents( newInv.toArray( inv ) );
+        
+        // Eject nothing from the Dispenser, since we're overriding it.
+        //event.setItem( repairItem );
+        event.setCancelled(true);
+        dispenser.getWorld().dropItem(dispenser.getBlock().getLocation(), repairItem);
     }
 }
