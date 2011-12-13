@@ -34,6 +34,16 @@ public class RDBlockListener extends BlockListener {
         List<ItemStack> repairList = new LinkedList<ItemStack> ();
         List<ItemStack> rawList = new LinkedList<ItemStack> ();
         
+        System.out.println( " ----------------- " );
+        
+        for (ItemStack someItem : inv) {
+            if ( someItem == null ) { continue; }
+            
+            System.out.println( someItem.toString() );
+        }
+        
+        System.out.println( "DROPPING = "+ ((event.getItem() != null) ? event.getItem().toString() : "NULL") );
+        
         // Check for any repairable items.
         for (ItemStack invItem : inv) {
             if ( Repairable.isRepairable( invItem ) ) {
@@ -46,15 +56,11 @@ public class RDBlockListener extends BlockListener {
         
         // If there's nothing to repair, no need to intercept Dispenser.
         if ( repairList.size() <= 0 ) {
-            // Drop enchant instead if dispensing.
-            buggyEnchantHandler(event);
             return;
         }
         
         // If there are no raw materials for the repair items, no need to do anything.
         if ( rawList.size() <= 0 ) {
-            // Drop enchant instead if dispensing.
-            buggyEnchantHandler(event);
             return;
         }
         
@@ -97,8 +103,6 @@ public class RDBlockListener extends BlockListener {
         
         // If we can't repair anything, we're done.
         if ( canRepair == false ) {
-            // Drop enchant instead if dispensing.
-            buggyEnchantHandler(event);
             return;
         }
         
@@ -128,32 +132,58 @@ public class RDBlockListener extends BlockListener {
             }
         }
         
+        System.out.println( "[CHECK] "+repairItem.equals(event.getItem()) );
+        
+        // If the item currently being dropped is not the repair item, fix the dispenser's inventory.
+        if ( repairItem.equals(event.getItem()) == false ) {
+            
+            // [BUKKIT BUG FIX] Add back the item that's going to be removed.
+            int index = newInv.indexOf( event.getItem() );
+            // If the item stack is not identical,
+            if ( index <= 0 ) {
+                // Find the stack of the same material and find its index.
+                for (ItemStack lameItem : newInv) {
+                    if ( lameItem == null ) { continue; }
+                    
+                    if ( lameItem.getType().equals(event.getItem().getType()) ) {
+                        index = newInv.indexOf(lameItem);
+                        break;
+                    }
+                }
+            }
+            ItemStack lameFix = newInv.get(index);
+            if ( lameFix != null ) {
+                lameFix.setAmount( lameFix.getAmount() + 1 );
+            }
+            
+            // Remove the to-be-dispensed item.
+            newInv.set( newInv.indexOf(repairItem), null );
+        }
+        
+        // Update the dispenser's inventory.
+        dispenser.getInventory().setContents( newInv.toArray( inv ) );
+        
         // Repair the item.
         repairItem.setDurability( (short) Math.max(0, repairItem.getDurability() - (numRaw * durPerRaw)) );
         
-        // Remove the raw materials.
-        dispenser.getInventory().setContents( newInv.toArray( inv ) );
-        
         // Set the dispensed item.
-        //event.setItem( repairItem );
+        event.setItem( repairItem );
         
-        // If the item has enchantments, drop it (Bukkit bug) instead of dispensing it.
-        if ( repairItem.getEnchantments().size() <= 0 ) {
-            event.setItem( repairItem );
-        }
-        else {
-            // Remove item from inventory.
-            //newInv.set( newInv.indexOf(repairItem), null );
+        for (ItemStack someNewItem : dispenser.getInventory().getContents()) {
+            if ( someNewItem == null ) { continue; }
             
-            // Drop enchant instead if dispensing.
-            buggyEnchantHandler(event, repairItem);
+            System.out.println( "[NEW] "+someNewItem.toString() );
         }
+        
+        System.out.println( "DROPPED = "+ ((event.getItem() != null) ? event.getItem().toString() : "NULL") );
     }
     
-    public void buggyEnchantHandler (BlockDispenseEvent event) {
+    /*public void buggyEnchantHandler (BlockDispenseEvent event) {
         buggyEnchantHandler( event, null );
     }
     public void buggyEnchantHandler (BlockDispenseEvent event, ItemStack repair) {
+        event.setItem( (repair == null ) ? event.getItem() : repair );
+        
         // Get dispenser.
         Dispenser dispenser = (Dispenser) event.getBlock().getState();
         ItemStack item = (repair == null ) ? event.getItem() : repair;
@@ -178,5 +208,5 @@ public class RDBlockListener extends BlockListener {
             // Drop item onto the ground.
             dispenser.getWorld().dropItem(dispenser.getBlock().getLocation(), item);
         }
-    }
+    }*/
 }
