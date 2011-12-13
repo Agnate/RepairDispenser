@@ -34,16 +34,6 @@ public class RDBlockListener extends BlockListener {
         List<ItemStack> repairList = new LinkedList<ItemStack> ();
         List<ItemStack> rawList = new LinkedList<ItemStack> ();
         
-        System.out.println( " ----------------- " );
-        
-        for (ItemStack someItem : inv) {
-            if ( someItem == null ) { continue; }
-            
-            System.out.println( someItem.toString() );
-        }
-        
-        System.out.println( "DROPPING = "+ ((event.getItem() != null) ? event.getItem().toString() : "NULL") );
-        
         // Check for any repairable items.
         for (ItemStack invItem : inv) {
             if ( Repairable.isRepairable( invItem ) ) {
@@ -132,8 +122,6 @@ public class RDBlockListener extends BlockListener {
             }
         }
         
-        System.out.println( "[CHECK] "+repairItem.equals(event.getItem()) );
-        
         // If the item currently being dropped is not the repair item, fix the dispenser's inventory.
         if ( repairItem.equals(event.getItem()) == false ) {
             
@@ -163,50 +151,18 @@ public class RDBlockListener extends BlockListener {
         // Update the dispenser's inventory.
         dispenser.getInventory().setContents( newInv.toArray( inv ) );
         
+        // Calculate the repair amount.
+        short repairAmt = (short) (repairItem.getDurability() - (numRaw * durPerRaw));
+        
+        // If they're not supposed to over-repair, only allow it to go to zero (aka: zero damage).
+        if ( plugin.overRepair != true ) {
+            repairAmt = (short) Math.max(0, repairAmt);
+        }
+        
         // Repair the item.
-        repairItem.setDurability( (short) Math.max(0, repairItem.getDurability() - (numRaw * durPerRaw)) );
+        repairItem.setDurability( repairAmt );
         
         // Set the dispensed item.
         event.setItem( repairItem );
-        
-        for (ItemStack someNewItem : dispenser.getInventory().getContents()) {
-            if ( someNewItem == null ) { continue; }
-            
-            System.out.println( "[NEW] "+someNewItem.toString() );
-        }
-        
-        System.out.println( "DROPPED = "+ ((event.getItem() != null) ? event.getItem().toString() : "NULL") );
     }
-    
-    /*public void buggyEnchantHandler (BlockDispenseEvent event) {
-        buggyEnchantHandler( event, null );
-    }
-    public void buggyEnchantHandler (BlockDispenseEvent event, ItemStack repair) {
-        event.setItem( (repair == null ) ? event.getItem() : repair );
-        
-        // Get dispenser.
-        Dispenser dispenser = (Dispenser) event.getBlock().getState();
-        ItemStack item = (repair == null ) ? event.getItem() : repair;
-        
-        // Find the to-be-dropped item from the dispenser inventory.
-        for (ItemStack inv : dispenser.getInventory().getContents()) {
-            if ( inv == null ) { continue; }
-            
-            if ( inv.getType().equals( item.getType() )  &&  inv.getData().equals( item.getData() )  &&  inv.getAmount() == item.getAmount() ) {
-                item = inv;
-                break;
-            }
-        }
-        
-        // If it has enchantments, cancel the event and drop it in front of the dispenser.
-        if ( item.getEnchantments().size() > 0 ) {
-            event.setCancelled(true);
-            
-            // Remove the item from the Dispenser inventory.
-            dispenser.getInventory().remove( item );
-            
-            // Drop item onto the ground.
-            dispenser.getWorld().dropItem(dispenser.getBlock().getLocation(), item);
-        }
-    }*/
 }

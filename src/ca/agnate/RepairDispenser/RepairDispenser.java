@@ -16,10 +16,10 @@ import org.bukkit.plugin.java.JavaPlugin;
 public class RepairDispenser extends JavaPlugin {
 	
 	protected List<Node> permissionOPs;
-    protected Config config;
     protected Server server;
     protected static String prefix = "[RepairDispenser]";
-	
+	public boolean overRepair;
+    
 	@Override
 	public void onDisable() {
 		// Show disabled message.
@@ -41,6 +41,13 @@ public class RepairDispenser extends JavaPlugin {
         
         // Register events.
         pm.registerEvent(Event.Type.BLOCK_DISPENSE, blockListener, Priority.Lowest, this);
+        
+        // Grab data from config.
+        overRepair = this.getConfig().getBoolean("over-repair");
+        
+        // Save a default config file.
+        this.getConfig().options().copyDefaults(true);
+        saveConfig();
         
         // Show enabled message.
         System.out.println("[" + this + "] RepairDispenser is enabled.");
