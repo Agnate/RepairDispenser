@@ -127,6 +127,7 @@ public class RDBlockListener extends BlockListener {
             
             // [BUKKIT BUG FIX] Add back the item that's going to be removed.
             int index = newInv.indexOf( event.getItem() );
+            
             // If the item stack is not identical,
             if ( index <= 0 ) {
                 // Find the stack of the same material and find its index.
@@ -139,6 +140,11 @@ public class RDBlockListener extends BlockListener {
                     }
                 }
             }
+            
+            if ( index <= 0 ) {
+                index = newInv.indexOf(null);
+            }
+            
             ItemStack lameFix = newInv.get(index);
             if ( lameFix != null ) {
                 lameFix.setAmount( lameFix.getAmount() + 1 );
