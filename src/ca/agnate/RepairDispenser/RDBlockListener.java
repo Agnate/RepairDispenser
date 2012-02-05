@@ -8,11 +8,13 @@ import java.util.List;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.Dispenser;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockDispenseEvent;
-import org.bukkit.event.block.BlockListener;
 import org.bukkit.inventory.ItemStack;
 
-public class RDBlockListener extends BlockListener {
+public class RDBlockListener implements Listener {
     
     RepairDispenser plugin;
     
@@ -20,6 +22,7 @@ public class RDBlockListener extends BlockListener {
         this.plugin = plugin;
     }
     
+    @EventHandler(priority = EventPriority.LOW)
     public void onBlockDispense (BlockDispenseEvent event) {
         //plugin.getServer().getPlayer("agnate").getInventory().addItem( new ItemStack (Material.DIAMOND_CHESTPLATE, 1, (short) (Material.DIAMOND_CHESTPLATE.getMaxDurability() - 1) ) );
         
@@ -96,6 +99,8 @@ public class RDBlockListener extends BlockListener {
             return;
         }
         
+        // "After this, there is no turning back." -- Morpheus
+        
         // Calculate the durability repaired per raw material.
         short durPerRaw = (short) Math.ceil((float) repairItem.getType().getMaxDurability() / (float) repairInfo.getTotalRaw());
         
@@ -105,8 +110,12 @@ public class RDBlockListener extends BlockListener {
         // Remove the raw materials needed for the repair from the Dispenser inventory.
         List<ItemStack> newInv = new ArrayList<ItemStack> (Arrays.asList(inv));
         
+        // [BUKKIT BUG] Fix the inventory because dispensed item is always removed.
+        fixInventory( repairItem, event.getItem(), newInv );
+        
         int numRaw = 0;
         
+        // Remove as much raw material as we need for a full repair.
         while ( numRawNeeded > 0  &&  usefulRawList.size() > 0 ) {
             ItemStack temp = usefulRawList.removeFirst();
             
@@ -120,38 +129,6 @@ public class RDBlockListener extends BlockListener {
                 numRawNeeded -= temp.getAmount();
                 newInv.set( newInv.indexOf(temp), null );
             }
-        }
-        
-        // If the item currently being dropped is not the repair item, fix the dispenser's inventory.
-        if ( repairItem.equals(event.getItem()) == false ) {
-            
-            // [BUKKIT BUG FIX] Add back the item that's going to be removed.
-            int index = newInv.indexOf( event.getItem() );
-            
-            // If the item stack is not identical,
-            if ( index <= 0 ) {
-                // Find the stack of the same material and find its index.
-                for (ItemStack lameItem : newInv) {
-                    if ( lameItem == null ) { continue; }
-                    
-                    if ( lameItem.getType().equals(event.getItem().getType()) ) {
-                        index = newInv.indexOf(lameItem);
-                        break;
-                    }
-                }
-            }
-            
-            if ( index <= 0 ) {
-                index = newInv.indexOf(null);
-            }
-            
-            ItemStack lameFix = newInv.get(index);
-            if ( lameFix != null ) {
-                lameFix.setAmount( lameFix.getAmount() + 1 );
-            }
-            
-            // Remove the to-be-dispensed item.
-            newInv.set( newInv.indexOf(repairItem), null );
         }
         
         // Update the dispenser's inventory.
@@ -171,4 +148,54 @@ public class RDBlockListener extends BlockListener {
         // Set the dispensed item.
         event.setItem( repairItem );
     }
+    
+    public void fixInventory ( ItemStack repairItem, ItemStack dispensedItem, List<ItemStack> newInv ) {
+        // Because of a BUKKIT BUG, we need to correct the inventory.
+        // We do this by adding back the item that's going to be dispensed,
+        // as BUKKIT will remove this item, even if we change it to something else.
+        
+        // If the item currently being dropped is not the repair item, fix the dispenser's inventory.
+        if ( repairItem.equals(dispensedItem) == false ) {
+            // Remove the to-be-dispensed item.
+            newInv.set( newInv.indexOf(repairItem), null );
+            
+            // [BUKKIT BUG FIX] Add back the item that's going to be removed.
+            int index = newInv.indexOf( dispensedItem );
+            
+            // If the item stack is not identical AND it can be stacked,
+            if ( index < 0  &&  dispensedItem.getMaxStackSize() > 1 ) {
+                // Find the stack of the same material and find its index.
+                for (ItemStack lameItem : newInv) {
+                    if ( lameItem == null ) { continue; }
+                    
+                    if ( lameItem.getType().equals(dispensedItem.getType()) ) {
+                        index = newInv.indexOf(lameItem);
+                        break;
+                    }
+                }
+            }
+            // Set index to zero to fix an issue with maxStackSize = 1 items.
+            else if ( dispensedItem.getMaxStackSize() <= 1 ) {
+                index = -1;
+            }
+            
+            // Find an empty spot if we don't have a spot already.
+            if ( index < 0 ) {
+                index = newInv.indexOf(null);
+            }
+            
+            // Grab the item stack that we need to increment/change.
+            ItemStack lameFix = newInv.get(index);
+            
+            // If we're supposed to stack it, do so.
+            if ( lameFix != null  &&  lameFix.getMaxStackSize() > 1 ) {
+                lameFix.setAmount( lameFix.getAmount() + 1 );
+            }
+            // Otherwise, add it to the new index (if it's not stackable, we have index of a null slot)
+            else {
+                newInv.set( index, dispensedItem.clone() );
+            }
+        }
+    }
+    
 }

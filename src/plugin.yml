@@ -5,7 +5,7 @@ generator: http://dinnerbone.com/minecraft/tools/pluginator/
 main: ca.agnate.RepairDispenser.RepairDispenser
 name: RepairDispenser
 startup: postworld
-version: 0.2.1
+version: 0.3.0
 permissions:
     repairdispenser.norepair:
         description: Disables the user from repairing an item via the RepairDispenser.

@@ -6,11 +6,7 @@ import java.util.List;
 import org.bukkit.ChatColor;
 import org.bukkit.Server;
 import org.bukkit.command.CommandSender;
-import org.bukkit.event.Event;
-import org.bukkit.event.Event.Priority;
-import org.bukkit.event.block.BlockListener;
 import org.bukkit.permissions.Permissible;
-import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class RepairDispenser extends JavaPlugin {
@@ -35,19 +31,15 @@ public class RepairDispenser extends JavaPlugin {
         // Save server object.
         server = getServer();
         
-	    // Create event listeners.
-        PluginManager pm = getServer().getPluginManager();
-        BlockListener blockListener = new RDBlockListener (this);
-        
-        // Register events.
-        pm.registerEvent(Event.Type.BLOCK_DISPENSE, blockListener, Priority.Lowest, this);
-        
-        // Grab data from config.
+	    // Grab data from config.
         overRepair = this.getConfig().getBoolean("over-repair");
         
         // Save a default config file.
         this.getConfig().options().copyDefaults(true);
         saveConfig();
+        
+        // Create event listener.
+        getServer().getPluginManager().registerEvents(new RDBlockListener (this), this);
         
         // Show enabled message.
         System.out.println("[" + this + "] RepairDispenser is enabled.");
