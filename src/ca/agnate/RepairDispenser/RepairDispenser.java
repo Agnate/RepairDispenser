@@ -15,6 +15,9 @@ public class RepairDispenser extends JavaPlugin {
     protected Server server;
     protected static String prefix = "[RepairDispenser]";
 	public boolean overRepair;
+	public boolean wasteRaws;
+	public List<Repairable> repairables;
+	public Repairer repairer;
     
 	@Override
 	public void onDisable() {
@@ -33,6 +36,10 @@ public class RepairDispenser extends JavaPlugin {
         
 	    // Grab data from config.
         overRepair = this.getConfig().getBoolean("over-repair");
+        wasteRaws = this.getConfig().getBoolean("waste-raw-materials");
+        
+        // Create the repairer.
+        repairer = new Repairer ();
         
         // Save a default config file.
         this.getConfig().options().copyDefaults(true);

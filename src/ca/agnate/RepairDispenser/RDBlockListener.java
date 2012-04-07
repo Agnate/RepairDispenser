@@ -39,10 +39,10 @@ public class RDBlockListener implements Listener {
         
         // Check for any repairable items.
         for (ItemStack invItem : inv) {
-            if ( Repairable.isRepairable( invItem ) ) {
+            if ( plugin.repairer.isRepairable( invItem ) ) {
                 repairList.add( invItem );
             }
-            else if ( Repairable.isRawMaterial( invItem ) ) {
+            else if ( plugin.repairer.isRawMaterial( invItem ) ) {
                 rawList.add( invItem );
             }
         }
@@ -71,7 +71,7 @@ public class RDBlockListener implements Listener {
             if ( repairItem.getDurability() <= 0 ) { continue; }
             
             // Grab the repair info.
-            repairInfo = Repairable.getRepairable( repairItem );
+            repairInfo = plugin.repairer.getRepairable( repairItem );
             
             // If there is no repair info, continue with the next repairItem.
             if ( repairInfo == null ) { continue; }
@@ -81,7 +81,7 @@ public class RDBlockListener implements Listener {
                 if ( raw == null ) { continue; }
                 
                 // If it's the proper material, remember it.
-                if ( raw.getType().equals( repairInfo.getRaw() ) ) {
+                if ( raw.getType().equals( repairInfo.raw ) ) {
                     usefulRawList.add( raw );
                 }
             }
@@ -102,16 +102,26 @@ public class RDBlockListener implements Listener {
         // "After this, there is no turning back." -- Morpheus
         
         // Calculate the durability repaired per raw material.
-        short durPerRaw = (short) Math.ceil((float) repairItem.getType().getMaxDurability() / (float) repairInfo.getTotalRaw());
+        short durPerRaw = (short) Math.ceil((float) repairItem.getType().getMaxDurability() / (float) repairInfo.totalRaw);
         
         // Use the minimum amount of raw materials for the repair.
-        int numRawNeeded = (int) Math.ceil( (float) repairItem.getDurability() / (float) durPerRaw );
+        float tempNumRaw = (float) repairItem.getDurability() / (float) durPerRaw;
+        int numRawNeeded = 0;
+        
+        // If we can "waste" a raw material to repair below it's total repair value, do it.
+        if ( plugin.wasteRaws ) {
+            numRawNeeded = (int) Math.ceil( tempNumRaw );
+        }
+        // Otherwise, don't repair the full repair amount based on the raw provided.
+        else {
+            numRawNeeded = (int) Math.floor( tempNumRaw );
+        }
         
         // Remove the raw materials needed for the repair from the Dispenser inventory.
         List<ItemStack> newInv = new ArrayList<ItemStack> (Arrays.asList(inv));
         
-        // [BUKKIT BUG] Fix the inventory because dispensed item is always removed.
-        fixInventory( repairItem, event.getItem(), newInv );
+        // Remove the to-be-dispensed item.
+        newInv.set( newInv.indexOf(repairItem), null );
         
         int numRaw = 0;
         
@@ -147,55 +157,6 @@ public class RDBlockListener implements Listener {
         
         // Set the dispensed item.
         event.setItem( repairItem );
-    }
-    
-    public void fixInventory ( ItemStack repairItem, ItemStack dispensedItem, List<ItemStack> newInv ) {
-        // Because of a BUKKIT BUG, we need to correct the inventory.
-        // We do this by adding back the item that's going to be dispensed,
-        // as BUKKIT will remove this item, even if we change it to something else.
-        
-        // If the item currently being dropped is not the repair item, fix the dispenser's inventory.
-        if ( repairItem.equals(dispensedItem) == false ) {
-            // Remove the to-be-dispensed item.
-            newInv.set( newInv.indexOf(repairItem), null );
-            
-            // [BUKKIT BUG FIX] Add back the item that's going to be removed.
-            int index = newInv.indexOf( dispensedItem );
-            
-            // If the item stack is not identical AND it can be stacked,
-            if ( index < 0  &&  dispensedItem.getMaxStackSize() > 1 ) {
-                // Find the stack of the same material and find its index.
-                for (ItemStack lameItem : newInv) {
-                    if ( lameItem == null ) { continue; }
-                    
-                    if ( lameItem.getType().equals(dispensedItem.getType()) ) {
-                        index = newInv.indexOf(lameItem);
-                        break;
-                    }
-                }
-            }
-            // Set index to zero to fix an issue with maxStackSize = 1 items.
-            else if ( dispensedItem.getMaxStackSize() <= 1 ) {
-                index = -1;
-            }
-            
-            // Find an empty spot if we don't have a spot already.
-            if ( index < 0 ) {
-                index = newInv.indexOf(null);
-            }
-            
-            // Grab the item stack that we need to increment/change.
-            ItemStack lameFix = newInv.get(index);
-            
-            // If we're supposed to stack it, do so.
-            if ( lameFix != null  &&  lameFix.getMaxStackSize() > 1 ) {
-                lameFix.setAmount( lameFix.getAmount() + 1 );
-            }
-            // Otherwise, add it to the new index (if it's not stackable, we have index of a null slot)
-            else {
-                newInv.set( index, dispensedItem.clone() );
-            }
-        }
     }
     
 }
